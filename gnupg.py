@@ -186,6 +186,8 @@ class Verify(object):
             self.valid = False
             self.key_id = value.split()[0]
             self.status = (('%s %s') % (key[:3], key[3:])).lower()
+        elif key in ("DECRYPTION_INFO", "DECRYPTION_FAILED", "DECRYPTION_OKAY"):
+            pass
         else:
             raise ValueError("Unknown status message: %r" % key)
 
@@ -1006,4 +1008,3 @@ class GPG(object):
         self._handle_io(args, file, result, passphrase, binary=True)
         logger.debug('decrypt result: %r', result.data)
         return result
-
