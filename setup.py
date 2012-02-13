@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(name = "python-gnupg",
     description="A wrapper for the Gnu Privacy Guard (GPG or GnuPG)",
