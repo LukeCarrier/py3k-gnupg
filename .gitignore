@@ -1,0 +1,4 @@
+# setuptools temporary files
+build/
+dist/
+python_gnupg.egg-info/
