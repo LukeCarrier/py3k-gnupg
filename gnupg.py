@@ -31,7 +31,9 @@ Modifications Copyright (C) 2008-2011 Vinay Sajip. All rights reserved.
 
 A unittest harness (test_gnupg.py) has also been added.
 """
+
 import locale
+import pexpect
 
 __author__ = "Vinay Sajip"
 __date__  = "$02-Sep-2011 13:18:12$"
@@ -448,6 +450,31 @@ class Sign(object):
             raise ValueError("Unknown status message: %r" % key)
 
 
+class SignKey(object):
+    """
+    Handle status messages for key signing.
+    """
+
+    gpg = None
+    exit_status = None
+    keyid = None
+
+    def __init__(self, gpg):
+        self.gpg = gpg
+        self.keyid = None
+
+    def __nonzero__(self):
+        return self.exit_status is not None
+
+    def __bool__(self):
+        return self.exit_status
+
+    def __str__(self):
+        return self.keyid or ''
+
+    def handle_status(self, exit_status, keyid):
+        (self.exit_status, self.keyid) = (exit_status, keyid)
+
 class GPG(object):
 
     decode_errors = 'strict'
@@ -459,6 +486,7 @@ class GPG(object):
         'import': ImportResult,
         'list': ListKeys,
         'sign': Sign,
+        'signkey': SignKey,
         'verify': Verify,
     }
 
@@ -741,6 +769,37 @@ class GPG(object):
         self._handle_io(['--import'], data, result, binary=True)
         logger.debug('import_keys result: %r', result.__dict__)
         data.close()
+        return result
+
+    def sign_key(self, keyid):
+        """
+        Sign a key in our keyring.
+        """
+
+        logger.debug('sign_key: %s', keyid)
+
+        result = self.result_map['signkey'](self)
+        args = [
+            self.gpgbinary,
+            '--homedir', self.gnupghome,
+            '--sign-key', keyid
+        ]
+
+        proc = pexpect.spawn(' '.join(args))
+        proc.expect('Really sign\? \(y/N\) ')
+        proc.send('y')
+
+        try:
+            proc.expect('gpg\> ')
+            proc.send('quit')
+            proc.wait()
+        except pexpect.TIMEOUT:
+            # This happens sometimes, so it's possibly related to the I/O
+            # timing. It seems to be harmless, and we know we signed the key if
+            # we got the confirmation prompt above.
+            pass
+
+        result.handle_status(proc.exitstatus, keyid)
         return result
 
     def recv_keys(self, keyserver, *keyids):
