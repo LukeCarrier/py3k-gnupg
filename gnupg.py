@@ -782,22 +782,13 @@ class GPG(object):
         args = [
             self.gpgbinary,
             '--homedir', self.gnupghome,
-            '--sign-key', keyid
+            '--sign-key', keyid,
         ]
 
         proc = pexpect.spawn(' '.join(args))
-        proc.expect('Really sign\? \(y/N\) ')
-        proc.send('y')
-
-        try:
-            proc.expect('gpg\> ')
-            proc.send('quit')
-            proc.wait()
-        except pexpect.TIMEOUT:
-            # This happens sometimes, so it's possibly related to the I/O
-            # timing. It seems to be harmless, and we know we signed the key if
-            # we got the confirmation prompt above.
-            pass
+        proc.expect_exact('Really sign? (y/N) ')
+        proc.sendline('y')
+        proc.wait()
 
         result.handle_status(proc.exitstatus, keyid)
         return result
