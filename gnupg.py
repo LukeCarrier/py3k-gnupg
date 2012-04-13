@@ -133,6 +133,7 @@ def _make_binary_stream(s, encoding):
         rv = StringIO(s)
     return rv
 
+
 class Verify(object):
     "Handle status messages for --verify"
 
@@ -201,6 +202,7 @@ class Verify(object):
             self.status = (('%s %s') % (key[:3], key[3:])).lower()
         else:
             raise ValueError("Unknown status message: %r" % key)
+
 
 class ImportResult(object):
     "Handle status messages for --import"
@@ -285,6 +287,7 @@ class ImportResult(object):
             l.append('%d not imported'%self.not_imported)
         return ', '.join(l)
 
+
 class ListKeys(list):
     ''' Handle status messages for --list-keys.
 
@@ -334,6 +337,7 @@ class ListKeys(list):
 
     def handle_status(self, key, value):
         pass
+
 
 class Crypt(Verify):
     "Handle status messages for --encrypt and --decrypt"
@@ -386,6 +390,7 @@ class Crypt(Verify):
         else:
             Verify.handle_status(self, key, value)
 
+
 class GenKey(object):
     "Handle status messages for --gen-key"
     def __init__(self, gpg):
@@ -410,6 +415,7 @@ class GenKey(object):
         else:
             raise ValueError("Unknown status message: %r" % key)
 
+
 class DeleteResult(object):
     "Handle status messages for --delete-key and --delete-secret-key"
     def __init__(self, gpg):
@@ -431,6 +437,7 @@ class DeleteResult(object):
                                                   "Unknown error: %r" % value)
         else:
             raise ValueError("Unknown status message: %r" % key)
+
 
 class Sign(object):
     "Handle status messages for --sign"
@@ -471,7 +478,6 @@ class SignKey(object):
 
     def __init__(self, gpg):
         self.gpg = gpg
-        self.keyid = None
 
     def __nonzero__(self):
         return self.exit_status is not None
@@ -485,6 +491,32 @@ class SignKey(object):
     def handle_status(self, exit_status, keyid):
         (self.exit_status, self.keyid) = (exit_status, keyid)
 
+
+class TrustKey(object):
+    """
+    Handle status messages for key trust changes.
+    """
+
+    gpg = None
+    exit_status = None
+    keyid = None
+
+    def __init__(self, gpg):
+        self.gpg = gpg
+
+    def __nonzero__(self):
+        return self.exit_status is not None
+
+    def __bool__(self):
+        return self.exit_status
+
+    def __str__(self):
+        return self.keyid or ''
+
+    def handle_status(self, exit_status, keyid):
+        (self.exitstatus, self.keyid) = (exit_status, keyid)
+ 
+
 class GPG(object):
 
     decode_errors = 'strict'
@@ -497,6 +529,7 @@ class GPG(object):
         'list': ListKeys,
         'sign': Sign,
         'signkey': SignKey,
+        'trustkey': TrustKey,
         'verify': Verify,
     }
 
@@ -786,7 +819,7 @@ class GPG(object):
         Sign a key in our keyring.
         """
 
-        logger.debug('sign_key: %s', keyid)
+        logger.debug("sign_key: %s", keyid)
 
         result = self.result_map['signkey'](self)
         args = [
@@ -796,8 +829,42 @@ class GPG(object):
         ]
 
         proc = pexpect.spawn(' '.join(args))
-        proc.expect_exact('Really sign? (y/N) ')
+        try:
+            proc.expect_exact('Really sign? (y/N) ')
+            proc.sendline('y')
+            proc.wait()
+        except pexpect.EOF: # Handles "Key not changed so no update needed"
+            pass
+
+        result.handle_status(proc.exitstatus, keyid)
+        return result
+
+    def trust_key(self, keyid, level=5):
+        """
+        Trust a key.
+        """
+
+        logger.debug("trust_key: %s %i")
+
+        if level not in list(range(1, 6)):
+            raise Exception('level must be between 1 and 5')
+
+        result = self.result_map['trustkey'](self)
+        args = [
+            self.gpgbinary,
+            '--homedir', self.gnupghome,
+            '--edit-key', keyid,
+        ]
+
+        proc = pexpect.spawn(' '.join(args))
+        proc.expect_exact('gpg> ')
+        proc.sendline('trust')
+        proc.expect_exact('Your decision? ')
+        proc.sendline(str(level))
+        proc.expect_exact('(y/N) ') # the phrasing differs based on level
         proc.sendline('y')
+        proc.expect_exact('gpg> ')
+        proc.sendline('quit')
         proc.wait()
 
         result.handle_status(proc.exitstatus, keyid)
