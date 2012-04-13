@@ -32,7 +32,13 @@ Modifications Copyright (C) 2008-2012 Vinay Sajip. All rights reserved.
 A unittest harness (test_gnupg.py) has also been added.
 """
 import locale
-import pexpect
+
+# Some systems won't have this module installed; just disable broken
+# functionality
+try:
+    import pexpect
+except ImportError:
+    pass
 
 __version__ = "0.2.9"
 __author__ = "Vinay Sajip"
@@ -1062,4 +1068,3 @@ class GPG(object):
         self._handle_io(args, file, result, passphrase, binary=True)
         logger.debug('decrypt result: %r', result.data)
         return result
-
