@@ -40,9 +40,9 @@ try:
 except ImportError:
     pass
 
-__version__ = "0.2.9"
+__version__ = "0.3.0"
 __author__ = "Vinay Sajip"
-__date__  = "$29-Mar-2012 21:12:58$"
+__date__  = "$12-May-2012 10:49:10$"
 
 try:
     from io import StringIO
@@ -297,7 +297,6 @@ class ListKeys(list):
 
         crt = X.509 certificate
         crs = X.509 certificate and private key available
-        sub = subkey (secondary key)
         ssb = secret subkey (secondary key)
         uat = user attribute (same as user id except for field 10).
         sig = signature
@@ -323,6 +322,7 @@ class ListKeys(list):
         if self.curkey['uid']:
             self.curkey['uids'].append(self.curkey['uid'])
         del self.curkey['uid']
+        self.curkey['subkeys'] = []
         self.append(self.curkey)
 
     pub = sec = key
@@ -334,6 +334,10 @@ class ListKeys(list):
     def uid(self, args):
         self.curkey['uids'].append(args[9])
         self.uids.append(args[9])
+
+    def sub(self, args):
+        subkey = [args[4], args[11]]
+        self.curkey['subkeys'].append(subkey)
 
     def handle_status(self, key, value):
         pass
@@ -952,7 +956,7 @@ class GPG(object):
         self._collect_output(p, result, stdin=p.stdin)
         lines = result.data.decode(self.encoding,
                                    self.decode_errors).splitlines()
-        valid_keywords = 'pub uid sec fpr'.split()
+        valid_keywords = 'pub uid sec fpr sub'.split()
         for line in lines:
             if self.verbose:
                 print(line)
