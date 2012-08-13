@@ -861,13 +861,13 @@ class GPG(object):
         ]
 
         proc = pexpect.spawn(' '.join(args))
-        proc.expect_exact('gpg> ')
+        proc.expect_exact('> ')
         proc.sendline('trust')
         proc.expect_exact('Your decision? ')
         proc.sendline(str(level))
         proc.expect_exact('(y/N) ') # the phrasing differs based on level
         proc.sendline('y')
-        proc.expect_exact('gpg> ')
+        proc.expect_exact('> ')
         proc.sendline('quit')
         proc.wait()
 
